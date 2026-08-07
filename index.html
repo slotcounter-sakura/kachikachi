@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="utf-8">
+			<meta name="viewport" content="width=device-width,initial-scale=1">
+				<title>KC.Ver.1</title>
+				<style>
+					body{font-family:-apple-system,sans-serif;background:#111;color:#eee;margin:0}
+					header{padding:12px;background:#222;position:sticky;top:0}
+					button{border:0;border-radius:10px;padding:10px 14px;margin:3px}
+					input{padding:8px;border-radius:8px}
+					.tab{background:#444;color:#fff}
+					.active{background:#0a84ff}
+					.card{background:#1e1e1e;margin:8px;padding:10px;border-radius:12px}
+					.plus{background:#34c759;color:#fff}
+					.minus{background:#ff453a;color:#fff}
+					.save{background:#0a84ff;color:#fff}
+					#items,
+					#bonusItems{
+					display:grid;
+					grid-template-columns:1fr 1fr;
+					gap:8px;
+					}
+
+					.counterCard{
+					text-align:center;
+					user-select:none;
+					min-height:120px;
+					}
+
+					.counterValue{
+					font-size:24px;
+					font-weight:bold;
+					}
+				</style>
+				</head>
+	<body>
+		<header>
+			<h2>KC Ver.1</h2>
+			<button class="tab active" onclick="showTab('normal')">通常時</button>
+			<button class="tab" onclick="showTab('bonus')">ボーナス</button>
+		</header>
+		<div id="normal">
+			<div class="card">機種名 <input id="session" value="エヴァBT">
+				<br>
+					<br>
+						開始G <input id="start" type="number" value="0">
+						現在G <input id="current" type="number" value="0">
+							<br>
+								<br>
+									<button onclick="addG(10)">+10</button>
+									<button onclick="addG(50)">+50</button>
+									<input id="custom" type="number" value="100" style="width:70px">
+										<button onclick="addCustom()">加算</button>
+										<h3>総G数 <span id="myg">0</span>
+										</h3>
+										</div>
+			<div id="items"></div></div>
+		<div id="bonus" style="display:none">
+			<div class="card">ボーナス分母 <input id="bonusDenom" type="number" value="0">
+				<button onclick="bonusDenom.value=+bonusDenom.value+1;render()">+1</button>
+				<button onclick="bonusDenom.value=+bonusDenom.value+10;render()">+10</button>
+				</div><div id="bonusItems"></div></div><div class="card">
+					<button onclick="undoLast()">↶ 戻す</button>
+					<button class="save" onclick="saveSlot()">保存</button>
+					<button class="save" onclick="loadSlot()">呼出</button>
+					<button onclick="resetAll()">リセット</button>
+				</div>
+		<script>
+			let names=['ベル','チェリー','スイカ','強スイカ','弱スイカ','要素6','要素7','要素8','要素9','要素10'];
+			let counts={};
+			names.forEach(x=>counts[x]=0);
+			let bNames=['ベル','ハズレ','ボナ要素3','ボナ要素4','ボナ要素5'];
+			let bCounts={};
+			bNames.forEach(x=>bCounts[x]=0);
+			let lastAction=null;
+			function myG(){return Math.max(0,(+current.value)-(+start.value));}
+			function render(){myg.textContent=myG();
+
+			let h='';for(let n of names){let c=counts[n]||0;let g=myG();let rate=g&&c?(g/c).toFixed(1):'-';let per=g?((c/g)*100).toFixed(2):'0.00';
+			h+=`
+			<div class="card counterCard"
+			onclick='addCount("${n}")'>
+
+				<input
+				value='${n}'
+				onclick='event.stopPropagation()'
+				onchange='rename(this,"${n}")'>
+
+					<div class="counterValue">
+						${c}
+					</div>
+
+					<div>
+						1/${rate}
+					</div>
+
+				</div>
+			`;}items.innerHTML=h;let b='';for(let n of bNames){let c=bCounts[n]||0;let d=+bonusDenom.value;let rate=d&&c?(d/c).toFixed(1):'-';
+			b+=`
+			<div class=card>
+				<input value='${n}' onchange='brename(this,"${n}")'> 回数:${c}
+		<br>
+			1/${rate}
+			<br>
+			<button class=plus onclick='bCounts["${n}"]++;render()'>＋</button>
+		<button class=minus onclick='bCounts["${n}"]=Math.max(0,bCounts["${n}"]-1);render()'>－</button></div>`;}bonusItems.innerHTML=b;}
+			function rename(el,old){let v=el.value;counts[v]=counts[old];delete counts[old];names=names.map(x=>x===old?v:x);render()}
+			function brename(el,old){let v=el.value;bCounts[v]=bCounts[old];delete bCounts[old];bNames=bNames.map(x=>x===old?v:x);render()}
+			function addG(v){current.value=+current.value+v;render()}
+			function addCustom(){current.value=+current.value+(+custom.value||0);render()}
+			function saveSlot(){localStorage.setItem('katikati_v1',JSON.stringify({session:session.value,start:start.value,current:current.value,counts,names,bCounts,bNames,bonusDenom:bonusDenom.value}));}
+			function loadSlot(){let d=localStorage.getItem('katikati_v1');if(!d)return;d=JSON.parse(d);session.value=d.session;start.value=d.start;current.value=d.current;counts=d.counts;names=d.names;bCounts=d.bCounts;bNames=d.bNames;bonusDenom.value=d.bonusDenom;render();}
+			function resetAll(){localStorage.removeItem('katikati_v1');location.reload()}
+			function addCount(name){
+
+			counts[name]++;
+
+			lastAction={
+			type:"normal",
+			name:name
+			};
+
+			render();
+			saveSlot();
+			}
+
+			function addBonusCount(name){
+
+			bCounts[name]++;
+
+			lastAction={
+			type:"bonus",
+			name:name
+			};
+
+			render();
+			saveSlot();
+			}
+
+			function undoLast(){
+			 
+			if(!lastAction)return;
+
+			if(lastAction.type==="normal"){
+
+			counts[lastAction.name]=Math.max(
+			0,
+			counts[lastAction.name]-1
+			);
+
+			}else{
+
+			bCounts[lastAction.name]=Math.max(
+			0,
+			bCounts[lastAction.name]-1
+			);
+
+			}
+
+			lastAction=null;
+
+			render();
+			saveSlot();
+			}
+			function showTab(t){normal.style.display=t==='normal'?'block':'none';bonus.style.display=t==='bonus'?'block':'none';}start.oninput=current.oninput=bonusDenom.oninput=render;loadSlot();render();</script></body></html>
