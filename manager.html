@@ -1,1 +1,388 @@
-<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>麻雀成績管理</title><style>body{font-family:sans-serif;margin:12px}.box{border:1px solid #ccc;padding:10px;margin:10px 0;border-radius:8px}input,select,button{width:100%;padding:8px;margin:4px 0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:4px;text-align:center}.page{display:none}.active{display:block}</style></head><body><div id="page1" class="active page"><div class="box"><h2>対局設定</h2><input type="date" id="matchDate"><select id="p1"></select><select id="p2"></select><select id="p3"></select><select id="p4"></select><h3>新メンバー追加</h3><input id="newPlayerName"><button onclick="addPlayer()">追加</button><button onclick="newMatch()">新規対局</button><button onclick="startGame()">開始</button></div><div class="box"><h3>過去対局</h3><div id="historyList"></div></div></div><div id="page2" class="page"><div class="box"><h2 id="roundTitle">第1半荘</h2><label>トップ</label><select id="topPlayer" onchange="createInputs()"></select><div id="inputArea"></div></div><div class="box"><h3>トップ点数</h3><div id="topScore"></div></div><div class="box"><h3>結果</h3><div id="finalArea"></div></div><button onclick="registerResult()">半荘登録</button><button onclick="openSettlement()">途中精算</button><button onclick="finishMatch()">対局終了</button><div class="box"><h3>累計</h3><div id="totalArea"></div></div><div class="box"><table><thead><tr id="headerRow"><th>回</th></tr></thead><tbody id="resultBody"></tbody></table></div><div id="chipSection" class="box" style="display:none"><h3>チップ精算</h3><div id="chipInputs"></div><div id="chipTotalCheck"></div><button onclick="calculateChipSettlement()">精算計算</button></div><div id="finalResult" class="box" style="display:none"><div id="finalResultArea"></div></div></div><script>const STORAGE_KEY='mahjong_current_match',PLAYER_STORAGE_KEY='mahjong_player_master',HISTORY_KEY='mahjong_history';let players=[],results=[],hanchan=1,currentScore={},matchFinished=false,masterPlayers=[];function saveMasterPlayers(){localStorage.setItem(PLAYER_STORAGE_KEY,JSON.stringify(masterPlayers))}function loadMasterPlayers(){let s=localStorage.getItem(PLAYER_STORAGE_KEY);masterPlayers=s?JSON.parse(s):['本田','山田','佐藤','鈴木'];saveMasterPlayers()}function refreshPlayerSelects(){['p1','p2','p3','p4'].forEach(id=>{let e=document.getElementById(id),c=e.value;e.innerHTML='';masterPlayers.forEach(n=>e.add(new Option(n,n)));if(masterPlayers.includes(c))e.value=c})}function addPlayer(){let n=newPlayerName.value.trim();if(!n)return;if(masterPlayers.includes(n))return;masterPlayers.push(n);saveMasterPlayers();refreshPlayerSelects();newPlayerName.value=''}function roundRule(p){let r=p%1000;return r<=500?p-r:p+(1000-r)}function baseScore(p){return (roundRule(p)-30000)/1000}function startGame(){players=[p1.value,p2.value,p3.value,p4.value];page1.classList.remove('active');page2.classList.add('active');topPlayer.innerHTML='';players.forEach(n=>topPlayer.add(new Option(n,n)));headerRow.innerHTML='<th>回</th>'+players.map(p=>'<th>'+p+'</th>').join('');createInputs();saveMatch()}function createInputs(){let t=topPlayer.value,o=players.filter(x=>x!==t);inputArea.innerHTML=o.map((n,i)=>n+'<input type=number id=score'+i+' oninput="calculate()">').join('');calculate()}function calculate(){let top=topPlayer.value,o=players.filter(x=>x!==top),sum=0,fs={},other=0;o.forEach((n,i)=>{let p=Number(document.getElementById('score'+i)?.value||0);sum+=p;let b=baseScore(p),f=i==0?b+5:i==1?b-5:b-10;fs[n]=f;other+=f});topScore.innerHTML=(100000-sum)+'点';fs[top]=-other;currentScore=fs;finalArea.innerHTML=players.map(n=>n+': '+(fs[n]??0)).join('<br>')}function renderTotal(){let t={};players.forEach(p=>t[p]=0);results.forEach(r=>players.forEach(p=>t[p]+=r[p]||0));totalArea.innerHTML=players.map(p=>p+': '+t[p]).join('<br>')}function registerResult(){if(matchFinished)return;results.push({...currentScore});resultBody.innerHTML+= '<tr><td>'+hanchan+'</td>'+players.map(p=>'<td>'+currentScore[p]+'</td>').join('')+'</tr>';hanchan++;roundTitle.innerText='第'+hanchan+'半荘';renderTotal();saveMatch()}function openSettlement(){chipInputs.innerHTML=players.map(p=>p+'<input type=number value=0 id="chip_'+p+'" oninput="checkChipTotal()">').join('');chipSection.style.display='block';checkChipTotal();saveMatch()}function checkChipTotal(){let t=0;players.forEach(p=>t+=Number(document.getElementById('chip_'+p)?.value||0));chipTotalCheck.innerHTML=t===0?'✅ チップ合計:0':'⚠ チップ合計:'+t;chipTotalCheck.style.color=t===0?'green':'red'}function calculateChipSettlement(){let ct=0;players.forEach(p=>ct+=Number(document.getElementById('chip_'+p).value||0));if(ct!==0){alert('チップ合計が0ではありません');return;}let totals={};players.forEach(p=>totals[p]=0);results.forEach(r=>players.forEach(p=>totals[p]+=r[p]||0));finalResult.style.display='block';finalResultArea.innerHTML=players.map(p=>{let c=Number(document.getElementById('chip_'+p).value||0)*2;return p+' 最終:'+(totals[p]+c)}).join('<br>')}function finishMatch(){matchFinished=true;saveToHistory();saveMatch();openSettlement();roundTitle.innerText='対局終了'}function saveMatch(){localStorage.setItem(STORAGE_KEY,JSON.stringify({players,results,hanchan,matchFinished,date:matchDate?.value||''}))}function loadMatch(){let s=localStorage.getItem(STORAGE_KEY);if(!s)return;let d=JSON.parse(s);if(!(d.players||[]).length)return;players=d.players;results=d.results||[];hanchan=d.hanchan||1;matchFinished=d.matchFinished||false;page1.classList.remove('active');page2.classList.add('active');topPlayer.innerHTML='';players.forEach(n=>topPlayer.add(new Option(n,n)));headerRow.innerHTML='<th>回</th>'+players.map(p=>'<th>'+p+'</th>').join('');resultBody.innerHTML='';results.forEach((r,i)=>resultBody.innerHTML+='<tr><td>'+(i+1)+'</td>'+players.map(p=>'<td>'+r[p]+'</td>').join('')+'</tr>');renderTotal();createInputs()}function saveToHistory(){let h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');let totals={};players.forEach(p=>totals[p]=0);results.forEach(r=>players.forEach(p=>totals[p]+=r[p]||0));h.push({date:matchDate.value,totals});localStorage.setItem(HISTORY_KEY,JSON.stringify(h));loadHistoryList()}function loadHistoryList(){let h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');historyList.innerHTML=h.map(x=>'<div>'+x.date+'</div>').join('')}function newMatch(){localStorage.removeItem(STORAGE_KEY);location.reload()}window.onload=()=>{loadMasterPlayers();refreshPlayerSelects();loadHistoryList();loadMatch()};</script></body></html>
+<!DOCTYPE html><html lang="ja">
+	<head>
+		<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width,initial-scale=1">
+				<title>麻雀成績管理</title>
+				<style>
+					body{font-family:sans-serif;margin:12px}
+					.box{border:1px solid #ccc;padding:10px;margin:10px 0;border-radius:8px}
+					input,select,button{width:100%;padding:8px;margin:4px 0}
+					table{width:100%;border-collapse:collapse}th,
+					td{border:1px solid #ccc;padding:4px;text-align:center}
+					.page{display:none}.active{display:block}
+				</style>
+				</head>
+	<body>
+		<div id="page1" class="active page">
+			<div class="box">
+				<h2>対局設定</h2>
+				<input type="date" id="matchDate">
+					<select id="p1">
+						
+					</select>
+					<select id="p2">
+						
+					</select>
+					<select id="p3">
+						
+					</select>
+					<select id="p4">
+						
+					</select>
+					<h3>新メンバー追加</h3>
+					<input id="newPlayerName">
+						<button onclick="addPlayer()">追加</button>
+						<h3>登録メンバー</h3>
+						<div id="playerList"></div>
+
+						<button onclick="newMatch()">新規対局</button>
+						<button onclick="startGame()">開始</button>
+
+					</div>
+			<div class="box">
+				<h3>過去対局</h3>
+				<div id="historyList">
+					
+				</div>
+			</div>
+		</div>
+
+		<div id="page2" class="page">
+			<div class="box">
+				<h2 id="roundTitle">第1半荘</h2>
+				<label>トップ</label>
+				<select id="topPlayer" onchange="createInputs()">
+					
+				</select>
+				<div id="inputArea">
+					
+				</div>
+			</div>
+			<div class="box">
+				<h3>トップ点数</h3>
+				<div id="topScore">
+					
+				</div>
+			</div>
+			<div class="box">
+				<h3>結果</h3>
+				<div id="finalArea">
+					
+				</div>
+			</div>
+			<button onclick="registerResult()">半荘登録</button>
+			<button onclick="openSettlement()">途中精算</button>
+			<button onclick="finishMatch()">対局終了</button>
+			<button onclick="resetCurrentMatch()">対局リセット（テスト用）</button>
+			<button onclick="backToMenu()">設定画面へ戻る</button>
+			<div class="box"><h3>累計</h3><div id="totalArea">
+				
+			</div>
+			</div>
+			<div class="box">
+				<table>
+					<thead>
+						<tr id="headerRow">
+							<th>回</th>
+						</tr>
+					</thead>
+					<tbody id="resultBody">
+						
+					</tbody>
+				</table>
+			</div>
+			<div id="chipSection" class="box" style="display:none">
+				<h3>チップ精算</h3>
+				<div id="chipInputs">
+					
+				</div>
+				<div id="chipTotalCheck">
+					
+				</div>
+				<button onclick="calculateChipSettlement()">精算計算</button>
+			</div>
+			<div id="finalResult" class="box" style="display:none">
+				<div id="finalResultArea">
+					
+				</div>
+			</div>
+		</div>
+		<script>
+			const STORAGE_KEY='mahjong_current_match',
+			PLAYER_STORAGE_KEY='mahjong_player_master',
+			HISTORY_KEY='mahjong_history';
+			let players=[],
+			results=[],
+			hanchan=1,
+			currentScore={},
+			matchFinished=false,
+			masterPlayers=[];
+			function saveMasterPlayers()
+			{localStorage.setItem(PLAYER_STORAGE_KEY,JSON.stringify(masterPlayers))}
+			function renderPlayerList(){
+
+			playerList.innerHTML =
+			masterPlayers.map(n =>
+			'<div>'	+ n +' <button onclick="deletePlayer(\''+n+'\')">削除</button>'
+				+ '</div>'
+			).join('');
+			}
+			function deletePlayer(name){
+
+			if(!confirm(name + ' を削除しますか？')){
+			return;
+			}
+
+			masterPlayers =
+			masterPlayers.filter(p => p !== name);
+
+			saveMasterPlayers();
+			refreshPlayerSelects();
+			renderPlayerList();
+			}
+			function loadMasterPlayers()
+			{let s=localStorage.getItem(PLAYER_STORAGE_KEY);
+			masterPlayers=s?JSON.parse(s):['本田','丸山','西本','田中'];
+			saveMasterPlayers()}
+			function refreshPlayerSelects()
+			{['p1','p2','p3','p4']
+			.forEach(id=>{let e=document.getElementById(id),c=e.value;e.innerHTML='';
+			masterPlayers.forEach(n=>e.add(new Option(n,n)));
+			if(masterPlayers.includes(c))e.value=c})}
+			function resetCurrentMatch(){
+
+			localStorage.removeItem(STORAGE_KEY);
+
+			players = [];
+			results = [];
+			hanchan = 1;
+			currentScore = {};
+			matchFinished = false;
+
+			page2.classList.remove('active');
+			page1.classList.add('active');
+
+			}
+			function backToMenu(){
+
+			page2.classList.remove('active');
+			page1.classList.add('active');
+
+			}
+			function addPlayer(){let n=newPlayerName.value.trim();if(!n)return;if(masterPlayers.includes(n))return;masterPlayers.push(n);saveMasterPlayers();refreshPlayerSelects();renderPlayerList();newPlayerName.value=''}
+			function roundRule(p){let r=p%1000;return r<=500?p-r:p+(1000-r)}function baseScore(p){return (roundRule(p)-30000)/1000}function startGame(){players=[p1.value,p2.value,p3.value,p4.value];page1.classList.remove('active');page2.classList.add('active');topPlayer.innerHTML='';players.forEach(n=>topPlayer.add(new Option(n,n)));headerRow.innerHTML='<th>回</th>'+players.map(p=>'<th>'+p+'</th>').join('');
+				createInputs();
+				saveMatch()}
+				function createInputs(){
+
+				let top = topPlayer.value;
+				let others = players.filter(x=>x!==top);
+
+				inputArea.innerHTML =
+				'<h4>2着</h4>' +
+				'<select id="rank2">' +
+					others.map((n,i)=>'<option value="'+n+'"'+(i===0?' selected=' : '')+'>'+n+'</option>').join('') +'</select>' +'<input type="number" id="score2" oninput="calculate()">' +
+
+					'<h4>3着</h4>' +
+					'<select id="rank3" onchange="calculate()">' +
+						others.map((n,i)=>'<option value="'+n+'"'+(i===1?' selected=':'')+'>'+n+'</option>').join('') +
+						'</select>' +'<input type="number" id="score3" oninput="calculate()">' +	
+					'<h4>4着</h4>' +'<select id="rank4" onchange="calculate()">' +
+						others.map((n,i)=>'<option value="'+n+'"'+(i===2?' selected=':'')+'>'+n+'</option>').join('') +'</select>' +'<input type="number" id="score4" oninput="calculate()">';
+
+							calculate();
+							}
+
+							function calculate(){
+
+							let second = document.getElementById('rank2').value;
+							let third  = document.getElementById('rank3').value;
+							let fourth = document.getElementById('rank4').value;
+
+							if(!second || !third || !fourth) return;
+
+							if(new Set([second,third,fourth]).size !== 3){
+
+							finalArea.innerHTML =
+							'<span style="color:red">順位が重複しています</span>';
+
+							return;
+							}
+
+							let p2 = Number(document.getElementById('score2').value || 0);
+							let p3 = Number(document.getElementById('score3').value || 0);
+							let p4 = Number(document.getElementById('score4').value || 0);
+
+							let top = topPlayer.value;
+
+							let fs = {};
+
+							fs[second] = baseScore(p2) + 5;
+							fs[third]  = baseScore(p3) - 5;
+							fs[fourth] = baseScore(p4) - 10;
+
+							fs[top] = -(fs[second] + fs[third] + fs[fourth]);
+
+							currentScore = fs;
+
+							let topPoint = 100000 - p2 - p3 - p4;
+
+							topScore.innerHTML = topPoint + '点';
+
+							finalArea.innerHTML =
+
+							'1位 ' + top + ' : ' + fs[top] +
+							'<br>2位 ' + second + ' : ' + fs[second] +
+								'<br>3位 ' + third + ' : ' + fs[third] +
+									'<br>4位 ' + fourth + ' : ' + fs[fourth];
+
+								}
+								function renderTotal(){
+								let t={};
+
+								players.forEach(p=>t[p]=0);
+
+								results.forEach(r=>
+								players.forEach(p=>t[p]+=r[p]||0)
+								);
+
+								totalArea.innerHTML=
+								players.map(p=>p+': '+t[p])
+								.join('<br>');
+									}
+									function registerResult(){
+
+									let p2 = document.getElementById('score2').value;
+									let p3 = document.getElementById('score3').value;
+									let p4 = document.getElementById('score4').value;
+
+									if(p2 === '' || p3 === '' || p4 === ''){
+									alert('2着～4着の点数を入力してください');
+									return;
+									}
+
+									if(players.some(p => currentScore[p] === undefined)){
+									alert('順位と点数を入力してください');
+									return;
+									}
+									if(matchFinished)return;results.push({...currentScore});resultBody.innerHTML+= '<tr><td>'+hanchan+'</td>'+players.map(p=>'<td>'+currentScore[p]+'</td>').join('')+
+									'<td><button onclick="editResult('+(hanchan-1)+')">修正</button></td>'+'</tr>';hanchan++;roundTitle.innerText='第'+hanchan+'半荘';renderTotal();saveMatch();createInputs();
+									currentScore = {};}
+									function openSettlement(){chipInputs.innerHTML=players.map(p=>p+'<input type=number value=0 id="chip_'+p+'" oninput="checkChipTotal()">').join('');chipSection.style.display='block';checkChipTotal();saveMatch()}
+										function editResult(row){
+
+										players.forEach(p=>{
+
+										let value = prompt(
+										row + 1 + '半荘目 ' + p,
+										results[row][p]
+										);
+
+										if(value===null) return;
+
+										results[row][p] = Number(value);
+
+										});
+
+										let sum = players.reduce(
+										(a,p)=>a + Number(results[row][p]),
+										0
+										);
+
+										if(sum !== 0){
+										alert('この半荘の合計が0ではありません: ' + sum);
+										}
+
+										rebuildTable();
+										renderTotal();
+										saveMatch();
+
+										}   
+
+
+										function checkChipTotal(){let t=0;players.forEach(p=>t+=Number(document.getElementById('chip_'+p)?.value||0));
+										chipTotalCheck.innerHTML=t===0?'✅ チップ合計:0':'⚠ チップ合計:'+t;chipTotalCheck.style.color=t===0?'green':'red'}
+										function calculateChipSettlement(){
+										let ct=0;
+										players.forEach(p=>
+										ct+=Number(document.getElementById('chip_'+p).value||0)
+										);
+										if(ct!==0){alert('チップ合計が0ではありません');
+										return;
+										}
+										let totals={};
+										players.forEach(p=>totals[p]=0);
+										results.forEach(r=>
+										players.forEach(p=>
+										totals[p]+=r[p]||0));
+										finalResult.style.display='block';
+										finalResultArea.innerHTML=
+										players.map(p=>{
+										let c=
+										Number(document.getElementById('chip_'+p).value||0)*2;
+										return p+' 最終:'+(totals[p]+c)}).join('<br>')}
+										function finishMatch(){matchFinished=true;saveToHistory();saveMatch();openSettlement();roundTitle.innerText='対局終了'}
+										function saveMatch(){localStorage.setItem(STORAGE_KEY,JSON.stringify({players,results,hanchan,matchFinished,date:matchDate?.value||''}))}
+											function rebuildTable(){
+
+											resultBody.innerHTML='';
+
+											results.forEach((r,i)=>{
+
+											resultBody.innerHTML +=
+											'<tr><td>'+(i+1)+'</td>'+
+												players.map(p=>'<td>'+r[p]+'</td>').join('')+
+												'<td><button onclick="editResult('+i+')">修正</button></td>'+
+												'</tr>';
+
+											});
+
+											}
+											function loadMatch(){
+											let s=localStorage.getItem(STORAGE_KEY);if(!s)return;let d=JSON.parse(s);if(!(d.players||[]).length)return;players=d.players;results=d.results||[];hanchan=d.hanchan||1;matchFinished=d.matchFinished||false;page1.classList.remove('active');page2.classList.add('active');topPlayer.innerHTML='';players.forEach(n=>topPlayer.add(new Option(n,n)));
+											headerRow.innerHTML='<th>回</th>'+players.map(p=>'<th>'+p+'</th>').join('')+'<th>修正</th>';resultBody.innerHTML='';results.forEach((r,i)=>resultBody.innerHTML+='<tr><td>'+(i+1)+'</td>'+players.map(p=>'<td>'+r[p]+'</td>').join('')+'<td><button onclick="editResult('+i+')">修正</button></td>'+'</tr>');renderTotal();roundTitle.innerText='第'+hanchan+'半荘';createInputs()}
+											function saveToHistory(){
+											console.log("saveToHistory実行");
+											let h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');let totals={};players.forEach(p=>totals[p]=0);results.forEach(r=>players.forEach(p=>totals[p]+=r[p]||0));h.push({date:matchDate.value,totals});localStorage.setItem(HISTORY_KEY,JSON.stringify(h));loadHistoryList()}
+											function clearHistory(){
+
+											if(!confirm('履歴を全て削除しますか？')){
+											return;
+											}
+
+											localStorage.removeItem(HISTORY_KEY);
+
+											loadHistoryList();
+											}
+											function loadHistoryList(){
+
+											let h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');
+
+											historyList.innerHTML =
+											'<button onclick="clearHistory()">履歴全削除</button><hr>'
+												+
+												h.map((x,i)=>
+												'<div>'
+													+(x.date || '日付なし')
+													+' <button onclick="showHistory('+i+')">詳細</button>'
+													+'</div>'
+												).join('');
+												}
+												function showHistory(i){
+
+												let h = JSON.parse(
+												localStorage.getItem(HISTORY_KEY) || '[]'
+												);
+
+												let t = h[i].totals;
+
+												alert(
+												Object.keys(t)
+												.map(p => p + ' : ' + t[p])
+												.join('\n')
+												);
+												}
+												function newMatch(){localStorage.removeItem(STORAGE_KEY);location.reload()}window.onload=()=>{loadMasterPlayers();refreshPlayerSelects();renderPlayerList();loadHistoryList();loadMatch()};
+											</script>
+	</body>
+</html>
