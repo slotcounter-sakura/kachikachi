@@ -7,16 +7,43 @@
 					body{font-family:sans-serif;margin:12px}
 					.box{border:1px solid #ccc;padding:10px;margin:10px 0;border-radius:8px}
 					input,select,button{width:100%;padding:8px;margin:4px 0}
-					table{width:100%;border-collapse:collapse}th,
+					table{width:90%;border-collapse:collapse}th,
 					td{border:1px solid #ccc;padding:4px;text-align:center}
 					.page{display:none}.active{display:block}
+					.short{
+					width:180px;
+					}
+
+					.addPlayerRow{
+					display:flex;
+					gap:8px;
+					}
+
+					.addPlayerRow input{
+					flex:1;
+					}
+
+					.addPlayerRow button{
+					width:80px;
+					}
+
+					.playerRow{
+					display:flex;
+					justify-content:space-between;
+					align-items:center;
+					margin:4px 0;
+					}
+
+					.playerDelete{
+					width:80px;
+					}
 				</style>
 				</head>
 	<body>
 		<div id="page1" class="active page">
 			<div class="box">
 				<h2>対局設定</h2>
-				<input type="date" id="matchDate">
+				<input type="date" id="matchDate" class="short">
 					<select id="p1">
 						
 					</select>
@@ -29,14 +56,12 @@
 					<select id="p4">
 						
 					</select>
-					<h3>新メンバー追加</h3>
-					<input id="newPlayerName">
-						<button onclick="addPlayer()">追加</button>
-						<h3>登録メンバー</h3>
-						<div id="playerList"></div>
+					<button onclick="startGame()">開始</button>
+					<button onclick="newMatch()">新規対局</button>
+					
 
-						<button onclick="newMatch()">新規対局</button>
-						<button onclick="startGame()">開始</button>
+
+
 
 					</div>
 			<div class="box">
@@ -44,6 +69,22 @@
 				<div id="historyList">
 					
 				</div>
+				<details>
+					<summary>メンバー管理</summary>
+
+					<h3>新メンバー追加</h3>
+
+					<div class="addPlayerRow">
+
+						<input id="newPlayerName">
+
+							<button onclick="addPlayer()">追加</button>
+
+						</div>
+						<h3>登録メンバー</h3>
+						<div id="playerList"></div>
+
+					</details>
 			</div>
 		</div>
 
@@ -71,10 +112,6 @@
 				</div>
 			</div>
 			<button onclick="registerResult()">半荘登録</button>
-			<button onclick="openSettlement()">途中精算</button>
-			<button onclick="finishMatch()">対局終了</button>
-			<button onclick="resetCurrentMatch()">対局リセット（テスト用）</button>
-			<button onclick="backToMenu()">設定画面へ戻る</button>
 			<div class="box"><h3>累計</h3><div id="totalArea">
 				
 			</div>
@@ -105,7 +142,22 @@
 				<div id="finalResultArea">
 					
 				</div>
+
 			</div>
+			<details>
+				<summary>対局管理</summary>
+
+				<button onclick="openSettlement()">途中精算</button>
+				<button onclick="finishMatch()">対局終了</button>
+
+			</details>
+			<details>
+				<summary>開発用</summary>
+
+				<button onclick="backToMenu()">設定画面へ戻る</button>
+				<button onclick="resetCurrentMatch()">対局リセット</button>
+
+			</details>
 		</div>
 		<script>
 			const STORAGE_KEY='mahjong_current_match',
@@ -123,8 +175,14 @@
 
 			playerList.innerHTML =
 			masterPlayers.map(n =>
-			'<div>'	+ n +' <button onclick="deletePlayer(\''+n+'\')">削除</button>'
+
+			'<div class="playerRow">'+
+			'<span>' + n + '</span>'
+
+				+ '<button class="playerDelete" onclick="deletePlayer(\''+n+'\')">削除</button>'
+
 				+ '</div>'
+
 			).join('');
 			}
 			function deletePlayer(name){
