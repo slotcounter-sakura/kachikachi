@@ -7,7 +7,11 @@
 					body{font-family:sans-serif;margin:12px}
 					.box{border:1px solid #ccc;padding:10px;margin:10px 0;border-radius:8px}
 					input,select,button{width:100%;padding:8px;margin:4px 0}
-					table{width:90%;border-collapse:collapse}th,
+					table{
+					width:100%;
+					border-collapse:collapse;
+					table-layout:fixed;
+					}th,
 					td{border:1px solid #ccc;padding:4px;text-align:center}
 					.page{display:none}.active{display:block}
 					.short{
@@ -37,8 +41,24 @@
 					.playerDelete{
 					width:80px;
 					}
+					.historyRow{
+					display:flex;
+					align-items:center;
+					gap:8px;
+					margin:4px 0;
+					}
+
+					.historyRow span{
+					flex:1;
+					}
+
+					.historyRow button{
+					width:80px;
+					}
+
 				</style>
-				</head>
+			<script src="chart.js"></script>
+						</head>
 	<body>
 		<div id="page1" class="active page">
 			<div class="box">
@@ -66,10 +86,14 @@
 					</div>
 			<div class="box">
 				<h3>過去対局</h3>
+				<div id="historyDetail"></div>
 				<div id="historyList">
 					
 				</div>
-				<details>
+				
+				
+			</div>
+			<details>
 					<summary>メンバー管理</summary>
 
 					<h3>新メンバー追加</h3>
@@ -81,10 +105,10 @@
 							<button onclick="addPlayer()">追加</button>
 
 						</div>
+			
 						<h3>登録メンバー</h3>
 						<div id="playerList"></div>
-
-					</details>
+				</details>
 			</div>
 		</div>
 
@@ -115,6 +139,10 @@
 			<div class="box"><h3>累計</h3><div id="totalArea">
 				
 			</div>
+				<div class="box">
+					<h3>推移グラフ</h3>
+					<canvas id="scoreChart" height="250"></canvas>
+				</div>
 			</div>
 			<div class="box">
 				<table>
@@ -139,16 +167,16 @@
 				<button onclick="calculateChipSettlement()">精算計算</button>
 			</div>
 			<div id="finalResult" class="box" style="display:none">
-				<div id="finalResultArea">
-					
-				</div>
+				<div id="finalResultArea"></div>
 
+				<button onclick="registerFinalResult()">
+					最終登録
+				</button>
 			</div>
 			<details>
 				<summary>対局管理</summary>
 
-				<button onclick="openSettlement()">途中精算</button>
-				<button onclick="finishMatch()">対局終了</button>
+				<button onclick="finishMatch()">チップ清算</button>
 
 			</details>
 			<details>
@@ -226,6 +254,58 @@
 			page2.classList.remove('active');
 			page1.classList.add('active');
 
+			}
+			function drawChart(){
+
+			let labels = ['開始'];
+
+			for(let i=1;i<=results.length;i++){
+			labels.push(i+'半荘');
+			}
+
+			let colors = [
+			'red',
+			'blue',
+			'green',
+			'orange'
+			];
+
+			let datasets = players.map((p,index)=>{
+
+			let total = 0;
+
+			let data = [0];
+
+			results.forEach(r=>{
+			total += r[p] || 0;
+			data.push(total);
+			});
+
+			return {
+			label:p,
+			data:data,
+			borderColor:colors[index],
+			fill:false,
+			tension:0
+			};
+
+			});
+
+			let ctx =
+			document.getElementById('scoreChart');
+
+			if(window.scoreChartInstance){
+			window.scoreChartInstance.destroy();
+			}
+
+			window.scoreChartInstance =
+			new Chart(ctx,{
+			type:'line',
+			data:{
+			labels:labels,
+			datasets:datasets
+			}
+			});
 			}
 			function addPlayer(){let n=newPlayerName.value.trim();if(!n)return;if(masterPlayers.includes(n))return;masterPlayers.push(n);saveMasterPlayers();refreshPlayerSelects();renderPlayerList();newPlayerName.value=''}
 			function roundRule(p){let r=p%1000;return r<=500?p-r:p+(1000-r)}function baseScore(p){return (roundRule(p)-30000)/1000}function startGame(){players=[p1.value,p2.value,p3.value,p4.value];page1.classList.remove('active');page2.classList.add('active');topPlayer.innerHTML='';players.forEach(n=>topPlayer.add(new Option(n,n)));headerRow.innerHTML='<th>回</th>'+players.map(p=>'<th>'+p+'</th>').join('');
@@ -325,8 +405,23 @@
 									}
 									if(matchFinished)return;results.push({...currentScore});resultBody.innerHTML+= '<tr><td>'+hanchan+'</td>'+players.map(p=>'<td>'+currentScore[p]+'</td>').join('')+
 									'<td><button onclick="editResult('+(hanchan-1)+')">修正</button></td>'+'</tr>';hanchan++;roundTitle.innerText='第'+hanchan+'半荘';renderTotal();saveMatch();createInputs();
-									currentScore = {};}
-									function openSettlement(){chipInputs.innerHTML=players.map(p=>p+'<input type=number value=0 id="chip_'+p+'" oninput="checkChipTotal()">').join('');chipSection.style.display='block';checkChipTotal();saveMatch()}
+									currentScore = {};
+									drawChart();
+									}
+									function openSettlement(){
+
+									console.log("openSettlement");
+
+									chipInputs.innerHTML =
+									players.map(p =>
+									p +
+									'<input type="number" value="0" id="chip_'+p+'" oninput="checkChipTotal()">'
+										).join('');
+
+										chipSection.style.display = 'block';
+
+										checkChipTotal();
+										}
 										function editResult(row){
 
 										players.forEach(p=>{
@@ -355,8 +450,26 @@
 										renderTotal();
 										saveMatch();
 
-										}   
+										}
+										function deleteHistory(index){
 
+										if(!confirm('この履歴を削除しますか？')){
+										return;
+										}
+
+										let h = JSON.parse(
+										localStorage.getItem(HISTORY_KEY) || '[]'
+										);
+
+										h.splice(index,1);
+
+										localStorage.setItem(
+										HISTORY_KEY,
+										JSON.stringify(h)
+										);
+
+										loadHistoryList();
+										}
 
 										function checkChipTotal(){let t=0;players.forEach(p=>t+=Number(document.getElementById('chip_'+p)?.value||0));
 										chipTotalCheck.innerHTML=t===0?'✅ チップ合計:0':'⚠ チップ合計:'+t;chipTotalCheck.style.color=t===0?'green':'red'}
@@ -379,8 +492,17 @@
 										let c=
 										Number(document.getElementById('chip_'+p).value||0)*2;
 										return p+' 最終:'+(totals[p]+c)}).join('<br>')}
-										function finishMatch(){matchFinished=true;saveToHistory();saveMatch();openSettlement();roundTitle.innerText='対局終了'}
-										function saveMatch(){localStorage.setItem(STORAGE_KEY,JSON.stringify({players,results,hanchan,matchFinished,date:matchDate?.value||''}))}
+											function finishMatch(){
+
+											matchFinished=true;
+
+											saveMatch();
+
+											openSettlement();
+
+											roundTitle.innerText='対局終了';
+											}
+											function saveMatch(){localStorage.setItem(STORAGE_KEY,JSON.stringify({players,results,hanchan,matchFinished,date:matchDate?.value||''}))}
 											function rebuildTable(){
 
 											resultBody.innerHTML='';
@@ -398,10 +520,54 @@
 											}
 											function loadMatch(){
 											let s=localStorage.getItem(STORAGE_KEY);if(!s)return;let d=JSON.parse(s);if(!(d.players||[]).length)return;players=d.players;results=d.results||[];hanchan=d.hanchan||1;matchFinished=d.matchFinished||false;page1.classList.remove('active');page2.classList.add('active');topPlayer.innerHTML='';players.forEach(n=>topPlayer.add(new Option(n,n)));
-											headerRow.innerHTML='<th>回</th>'+players.map(p=>'<th>'+p+'</th>').join('')+'<th>修正</th>';resultBody.innerHTML='';results.forEach((r,i)=>resultBody.innerHTML+='<tr><td>'+(i+1)+'</td>'+players.map(p=>'<td>'+r[p]+'</td>').join('')+'<td><button onclick="editResult('+i+')">修正</button></td>'+'</tr>');renderTotal();roundTitle.innerText='第'+hanchan+'半荘';createInputs()}
+											headerRow.innerHTML='<th>回</th>'+players.map(p=>'<th>'+p+'</th>').join('')+'<th>修正</th>';resultBody.innerHTML='';results.forEach((r,i)=>resultBody.innerHTML+='<tr><td>'+(i+1)+'</td>'+players.map(p=>'<td>'+r[p]+'</td>').join('')+'<td><button onclick="editResult('+i+')">修正</button></td>'+'</tr>');renderTotal();roundTitle.innerText='第'+hanchan+'半荘';createInputs();drawChart();}
 											function saveToHistory(){
-											console.log("saveToHistory実行");
-											let h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');let totals={};players.forEach(p=>totals[p]=0);results.forEach(r=>players.forEach(p=>totals[p]+=r[p]||0));h.push({date:matchDate.value,totals});localStorage.setItem(HISTORY_KEY,JSON.stringify(h));loadHistoryList()}
+
+											let gameTotals={};
+
+											players.forEach(p=>gameTotals[p]=0);
+
+											results.forEach(r=>
+											players.forEach(p=>
+											gameTotals[p]+=r[p]||0
+											)
+											);
+
+											let chips={};
+											let finalTotals={};
+
+											players.forEach(p=>{
+
+											chips[p]=Number(
+											document.getElementById('chip_'+p).value||0
+											);
+
+											finalTotals[p]=
+											gameTotals[p]
+											+ chips[p]*2;
+											});
+
+											let h=
+											JSON.parse(
+											localStorage.getItem(HISTORY_KEY)||'[]'
+											);
+
+											h.push({
+											date:matchDate.value,
+											players:[...players],
+											rounds:[...results],
+											gameTotals,
+											chips,
+											finalTotals
+											});
+
+											localStorage.setItem(
+											HISTORY_KEY,
+											JSON.stringify(h)
+											);
+
+											loadHistoryList();
+											}
 											function clearHistory(){
 
 											if(!confirm('履歴を全て削除しますか？')){
@@ -417,14 +583,28 @@
 											let h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');
 
 											historyList.innerHTML =
-											'<button onclick="clearHistory()">履歴全削除</button><hr>'
-												+
-												h.map((x,i)=>
-												'<div>'
-													+(x.date || '日付なし')
-													+' <button onclick="showHistory('+i+')">詳細</button>'
-													+'</div>'
-												).join('');
+
+											h.slice().reverse().map((x,i)=>{
+
+											let originalIndex = h.length - 1 - i;
+
+											return '<div class="historyRow">													'
+													+ '<span>'+(x.date || '日付なし')+'</span>'
+													+ '<button onclick="showHistory('+originalIndex+')">詳細</button>'
+													+ '<button onclick="deleteHistory('+originalIndex+')">削除</button>'
+													+ '												</div>';
+
+												}).join('');
+												}
+												function registerFinalResult(){
+
+												saveToHistory();
+
+												// localStorage.removeItem(STORAGE_KEY);
+
+												alert('対局結果を保存しました');
+
+												// location.reload();
 												}
 												function showHistory(i){
 
@@ -432,15 +612,77 @@
 												localStorage.getItem(HISTORY_KEY) || '[]'
 												);
 
-												let t = h[i].totals;
+												let d = h[i];
 
-												alert(
-												Object.keys(t)
-												.map(p => p + ' : ' + t[p])
-												.join('\n')
-												);
-												}
-												function newMatch(){localStorage.removeItem(STORAGE_KEY);location.reload()}window.onload=()=>{loadMasterPlayers();refreshPlayerSelects();renderPlayerList();loadHistoryList();loadMatch()};
-											</script>
+												let html =
+												'<h3>対局日：' + d.date + '</h3>';
+
+											html += '<table>												';
+
+												html += '<tr>													<th>項目</th>';
+
+													d.players.forEach(p=>{
+													html += '<th>'+p+'</th>';
+													});
+
+													html += '												</tr>';
+
+												html += '<tr>													<td>試合</td>';
+
+													d.players.forEach(p=>{
+													html += '<td>'+d.gameTotals[p]+'</td>';
+													});
+
+													html += '												</tr>';
+
+												html += '<tr>													<td>チップ</td>';
+
+													d.players.forEach(p=>{
+													html += '<td>'+d.chips[p]+'</td>';
+													});
+
+													html += '												</tr>';
+
+												html += '<tr>													<td>最終</td>';
+
+													d.players.forEach(p=>{
+													html += '<td>'+d.finalTotals[p]+'</td>';
+													});
+
+													html += '												</tr>';
+
+												html += '											</table>';
+											html += '<h3>半荘履歴</h3>';
+
+												html += '<table>';
+
+													html += '<tr><th>回</th>';
+
+														d.players.forEach(p => {
+														html += '<th>' + p + '</th>';
+														});
+
+														html += '</tr>';
+
+													d.rounds.forEach((r,index)=>{
+
+													html += '<tr>';
+
+														html += '<td>' + (index + 1) + '</td>';
+
+														d.players.forEach(p => {
+														html += '<td>' + (r[p] || 0) + '</td>';
+														});
+
+														html += '</tr>';
+
+													});
+
+													html += '</table>';
+											historyDetail.innerHTML = html;
+											}
+
+											function newMatch(){localStorage.removeItem(STORAGE_KEY);location.reload()}window.onload=()=>{loadMasterPlayers();refreshPlayerSelects();renderPlayerList();loadHistoryList();loadMatch();drawChart();};
+										</script>
 	</body>
 </html>
