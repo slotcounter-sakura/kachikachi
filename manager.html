@@ -588,8 +588,11 @@
 
 											let originalIndex = h.length - 1 - i;
 
-											return '<div class="historyRow">													'
-													+ '<span>'+(x.date || '日付なし')+'</span>'
+											return '<div class="historyRow">'
+													+ '<span>'+(x.date || '日付なし')
+													+'　'
+													+ x.players.join(' / ')
+													+'</span>'
 													+ '<button onclick="showHistory('+originalIndex+')">詳細</button>'
 													+ '<button onclick="deleteHistory('+originalIndex+')">削除</button>'
 													+ '												</div>';
