@@ -308,7 +308,18 @@
 			});
 			}
 			function addPlayer(){let n=newPlayerName.value.trim();if(!n)return;if(masterPlayers.includes(n))return;masterPlayers.push(n);saveMasterPlayers();refreshPlayerSelects();renderPlayerList();newPlayerName.value=''}
-			function roundRule(p){let r=p%1000;return r<=500?p-r:p+(1000-r)}function baseScore(p){return (roundRule(p)-30000)/1000}function startGame(){players=[p1.value,p2.value,p3.value,p4.value];page1.classList.remove('active');page2.classList.add('active');topPlayer.innerHTML='';players.forEach(n=>topPlayer.add(new Option(n,n)));headerRow.innerHTML='<th>回</th>'+players.map(p=>'<th>'+p+'</th>').join('');
+function roundRule(p){
+    if(!Number.isFinite(p) || !Number.isInteger(p)){
+        throw new Error('点数が正しい整数ではありません');
+    }
+
+    const remainder = ((p % 1000) + 1000) % 1000;
+
+    return remainder <= 500
+        ? p - remainder
+        : p + (1000 - remainder);
+}
+function baseScore(p){return (roundRule(p)-30000)/1000}function startGame(){players=[p1.value,p2.value,p3.value,p4.value];page1.classList.remove('active');page2.classList.add('active');topPlayer.innerHTML='';players.forEach(n=>topPlayer.add(new Option(n,n)));headerRow.innerHTML='<th>回</th>'+players.map(p=>'<th>'+p+'</th>').join('');
 				createInputs();
 				saveMatch()}
 				function createInputs(){
